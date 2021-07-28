@@ -1,0 +1,69 @@
+# Source files
+SRC=src/mod_vulture.c \
+	src/mod_vulture_config.c \
+	src/mod_vulture_const_global.c \
+	src/mod_vulture_cookie_encryption.c \
+	src/mod_vulture_filters.c \
+	src/mod_vulture_handler.c \
+	src/mod_vulture_kerberos.c \
+	src/mod_vulture_redis.c \
+	src/mod_vulture_session.c \
+
+
+HDRS = \
+	include/mod_vulture.h \
+	include/kerberos_client.h
+
+# Files to include when making a .tar.gz-file for distribution
+DISTFILES=$(SRC) \
+	$(HDRS) \
+	configure \
+	configure.ac \
+	Makefile.in \
+	autogen.sh \
+	INSTALL \
+	README.md \
+	AUTHORS \
+	mod_vulture.conf \
+	LICENSE
+
+all: src/mod_vulture.la
+
+CFLAGS = @APR_CFLAGS@ @HTTP_CFLAGS@ @LIBXML2_CFLAGS@ @LIBPCRE_CFLAGS@ @OPENSSL_CFLAGS@ @HIREDIS_CFLAGS@ @MODSEC_CFLAGS@
+LIBS = @APR_LIBS@ @HTTP_LIBS@ @LIBXML2_LIBS@ @LIBPCRE_LIBS@ @OPENSSL_LIBS@ @HIREDIS_LIBS@ @MODSEC_LIBS@
+
+src/mod_vulture.la: $(SRC) $(HDRS)
+	@APXS2@ @APXS2_OPTS@ -Wc,"-Wextra -Wall" $(CFLAGS) -Wl,"$(LIBS)" -lhiredis -lssl -lgssapi -lgssapi_krb5  -Iinclude -c $(SRC)
+
+configure:	configure.ac
+	./autogen.sh
+
+@NAMEVER@.tar.gz:	 $(DISTFILES)
+	tar -c --transform="s#^#@NAMEVER@/#" -vzf $@ $(DISTFILES)
+
+
+.PHONY:	install
+install: src/mod_vulture.la
+	@APXS2@ @APXS2_OPTS@ -i -a -n mod_vulture src/mod_vulture.la
+
+
+.PHONY: distfile
+distfile:	@NAMEVER@.tar.gz
+
+.PHONY:	clean
+clean:
+	rm -f src/mod_vulture.la
+	rm -f src/*.o
+	rm -f src/*.lo
+	rm -f src/*.slo
+	rm -rf src/.libs/
+
+.PHONY:	distclean
+distclean:	clean
+	rm -f Makefile config.log config.status @NAMEVER@.tar.gz *~ \
+	build-stamp config.guess config.sub
+
+.PHONY: fullclean
+fullclean:	distclean
+	rm -f configure aclocal.m4
+
